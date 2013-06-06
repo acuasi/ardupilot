@@ -36,6 +36,123 @@ static void zero_airspeed(void)
     gcs_send_text_P(SEVERITY_LOW,PSTR("zero airspeed calibrated"));
 }
 
+// Functions for reading values over I2C from the BQ34Z100 gas gauge chip
+// **********************************************************************
+
+unsigned int readSOC(void)
+{
+  Wire.beginTransmission(BQ34Z100);
+  Wire.write(0x02);
+  Wire.endTransmission();
+  
+  Wire.requestFrom(BQ34Z100,1);
+  
+  unsigned int low = Wire.read();
+  
+  Wire.beginTransmission(BQ34Z100);
+  Wire.write(0x03);
+  Wire.endTransmission();
+  
+  Wire.requestFrom(BQ34Z100,1);
+  
+  unsigned int high_t = Wire.read();
+
+  unsigned int high = high_t << 8;
+    
+  unsigned int soc = high + low;
+
+  return soc;
+}
+
+unsigned int RemainingCapacity(void)
+{
+  Wire.beginTransmission(BQ34Z100);
+  Wire.write(0x04);
+  Wire.endTransmission();
+  
+  Wire.requestFrom(BQ34Z100,1);
+  
+  unsigned int low = Wire.read();
+  
+  Wire.beginTransmission(BQ34Z100);
+  Wire.write(0x05);
+  Wire.endTransmission();
+  
+  Wire.requestFrom(BQ34Z100,1);
+  
+  unsigned int high = Wire.read();
+  
+  unsigned int high1 = high<<8;
+  
+  unsigned int remain_cap = high1 + low;
+
+  return remain_cap;
+}
+
+unsigned int readVoltage(void)
+{
+  Wire.beginTransmission(BQ34Z100);
+  Wire.write(0x08);
+  Wire.endTransmission();
+  
+  Wire.requestFrom(BQ34Z100,1);
+  
+  unsigned int low = Wire.read();
+  
+  Wire.beginTransmission(BQ34Z100);
+  Wire.write(0x09);
+  Wire.endTransmission();
+  
+  Wire.requestFrom(BQ34Z100,1);
+  
+  unsigned int high = Wire.read();
+  
+  unsigned int high1 = high<<8;
+  
+  unsigned int voltage = high1 + low;
+
+  return voltage;
+
+}
+
+int readCurrent(void)
+{
+  Wire.beginTransmission(BQ34Z100);
+  Wire.write(0x0a);
+  Wire.endTransmission();
+
+  Wire.requestFrom(BQ34Z100,1);
+
+  unsigned int low = Wire.read();
+
+  Wire.beginTransmission(BQ34Z100);
+  Wire.write(0x0b);
+  Wire.endTransmission();
+
+  Wire.requestFrom(BQ34Z100,1);
+  
+  unsigned int high_t = Wire.read();
+  
+  unsigned int high = high_t << 8;
+  
+  unsigned int avg_current = high + low;
+  
+  return avg_current/10;
+}
+
+static void query_bq34z100(void)
+{  
+    Wire.begin(BQ34Z100);
+
+    state_of_charge = readSOC();
+    battery_voltage1 = readVoltage();
+    current_amps1 = readCurrent();
+
+}
+
+// End of BQ34Z100 function definitions
+// **********************************************************************
+
 static void read_battery(void)
 {
     if(g.battery_monitoring == 0) {
