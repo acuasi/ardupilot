@@ -231,6 +231,9 @@
 //////////////////////////////////////////////////////////////////////////////
 // Battery monitoring
 //
+#ifndef BQ34Z100
+  # define BQ34Z100                      0x55
+#endif
 #ifndef BATTERY_EVENT
  # define BATTERY_EVENT                  DISABLED
 #endif
