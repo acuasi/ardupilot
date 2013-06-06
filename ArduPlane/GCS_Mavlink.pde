@@ -204,6 +204,7 @@ static NOINLINE void send_extended_status1(mavlink_channel_t chan, uint16_t pack
     }
 
     uint16_t battery_current = -1;
+    uint16_t battery_voltage = -1; //Added by Sam Vanderwaal for BQ34Z100
     uint8_t battery_remaining = -1;
 
     if (current_total1 != 0 && g.pack_capacity != 0) {
@@ -226,7 +227,8 @@ static NOINLINE void send_extended_status1(mavlink_channel_t chan, uint16_t pack
         control_sensors_enabled,
         control_sensors_health,
         (uint16_t)(load * 1000),
-        battery_voltage1 * 1000, // mV
+        // battery_voltage1 * 1000, // mV
+        battery_voltage,        // mV
         battery_current,        // in 10mA units
         battery_remaining,      // in %
         0, // comm drops %,
@@ -1040,6 +1042,9 @@ GCS_MAVLINK::send_text_P(gcs_severity severity, const prog_char_t *str)
     uint8_t i;
     for (i=0; i<sizeof(m.text); i++) {
         m.text[i] = pgm_read_byte((const prog_char *)(str++));
+        if (m.text[i] == '\0') {
+            break;
+        }
     }
     if (i < sizeof(m.text)) m.text[i] = 0;
     mavlink_send_text(chan, severity, (const char *)m.text);
