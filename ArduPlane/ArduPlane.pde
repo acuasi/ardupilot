@@ -423,6 +423,8 @@ static float battery_voltage1        = LOW_VOLTAGE * 1.05;
 static float current_amps1;
 // Totalized current (Amp-hours) from battery 1
 static float current_total1;
+// Battery charge in percentage. Used with the BQ34Z100.
+static float state_of_charge;
 
 // To Do - Add support for second battery pack
 //static float  battery_voltage2    = LOW_VOLTAGE * 1.05;		// Battery 2 Voltage, initialized above threshold for filter
@@ -886,7 +888,8 @@ static void medium_loop()
         medium_loopTimer_ms     = millis();
 
         if (g.battery_monitoring != 0) {
-            read_battery();
+            //read_battery(); Replacing this with a function that queries the BQ34Z100 gas gauge chip
+            query_bq34z100();
         }
 
         slow_loop();
