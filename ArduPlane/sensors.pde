@@ -46,21 +46,13 @@ static void zero_airspeed(void)
 
 unsigned int readSOC(void)
 {
-  //hal.i2c->write(BQ34Z100, 0x02);
   uint8_t low;
   uint8_t high_t;
+
   hal.i2c->readRegister(BQ34Z100, 0x02, &low);
-  
-  //unsigned int low = hal.i2c->receive();
-  
-  //hal.i2c->write(BQ34Z100, 0x03);
-  
   hal.i2c->readRegister(BQ34Z100, 0x03, &high_t);
-  
-  //unsigned int high_t = hal.i2c->receive();
-  
+   
   unsigned int high = high_t << 8;
-  
   unsigned int soc = high + low;
   
   return soc;
@@ -70,20 +62,11 @@ unsigned int RemainingCapacity(void)
 {
   uint8_t low;
   uint8_t high;
-  //hal.i2c->write(BQ34Z100, 0x04);
 
   hal.i2c->readRegister(BQ34Z100, 0x04, &low);
-  
-  //unsigned int low = hal.i2c->receive();
-  
-  //hal.i2c->write(BQ34Z100, 0x05);
-  
   hal.i2c->readRegister(BQ34Z100, 0x05, &high);
   
-  //unsigned int high = hal.i2c->receive();
-  
   unsigned int high1 = high<<8;
-  
   unsigned int remain_cap = high1 + low;
 
   return remain_cap;
@@ -94,18 +77,10 @@ unsigned int readVoltage(void)
   uint8_t low;
   uint8_t high_t;
 
-  //hal.i2c->write(BQ34Z100, 0x08);
   hal.i2c->readRegister(BQ34Z100, 0x08, &low);
-  
-  //unsigned int low = hal.i2c->receive();
-  
-  //hal.i2c->write(BQ34Z100, 0x09);  
   hal.i2c->readRegister(BQ34Z100, 0x09, &high_t);
   
-  //unsigned int high_t = hal.i2c->receive();
-  
-  unsigned int high = high_t << 8;
-   
+  unsigned int high = high_t << 8;   
   unsigned int voltage = high + low;
   
   return voltage;
@@ -117,18 +92,10 @@ int readCurrent(void)
   uint8_t low;
   uint8_t high_t;
 
-  //hal.i2c->write(BQ34Z100, 0x0a);
   hal.i2c->readRegister(BQ34Z100, 0x0a, &low);
-  
-  //unsigned int low = hal.i2c->receive();
-  
-  //hal.i2c->write(BQ34Z100, 0x0b);
   hal.i2c->readRegister(BQ34Z100, 0x0b, &high_t);
-  
-  //unsigned int high_t = hal.i2c->receive();
-  
-  unsigned int high = high_t << 8;
-  
+
+  unsigned int high = high_t << 8;  
   int avg_current = high + low;
   
   return avg_current/10;
