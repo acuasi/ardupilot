@@ -1,9 +1,4 @@
 // -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
-#include <AP_HAL.h>
-
-
-extern const AP_HAL::HAL& hal;
-
 
 // filter altitude from the barometer with a low pass filter
 static LowPassFilterInt32 altitude_filter;
