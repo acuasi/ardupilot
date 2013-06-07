@@ -1,4 +1,9 @@
 // -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
+#include <AP_HAL.h>
+
+
+extern const AP_HAL::HAL& hal;
+
 
 // filter altitude from the barometer with a low pass filter
 static LowPassFilterInt32 altitude_filter;
@@ -41,46 +46,41 @@ static void zero_airspeed(void)
 
 unsigned int readSOC(void)
 {
-  Wire.beginTransmission(BQ34Z100);
-  Wire.write(0x02);
-  Wire.endTransmission();
+  //hal.i2c->write(BQ34Z100, 0x02);
+  uint8_t low;
+  uint8_t high_t;
+  hal.i2c->readRegister(BQ34Z100, 0x02, &low);
   
-  Wire.requestFrom(BQ34Z100,1);
+  //unsigned int low = hal.i2c->receive();
   
-  unsigned int low = Wire.read();
+  //hal.i2c->write(BQ34Z100, 0x03);
   
-  Wire.beginTransmission(BQ34Z100);
-  Wire.write(0x03);
-  Wire.endTransmission();
+  hal.i2c->readRegister(BQ34Z100, 0x03, &high_t);
   
-  Wire.requestFrom(BQ34Z100,1);
+  //unsigned int high_t = hal.i2c->receive();
   
-  unsigned int high_t = Wire.read();
-
   unsigned int high = high_t << 8;
-    
+  
   unsigned int soc = high + low;
-
+  
   return soc;
 }
 
 unsigned int RemainingCapacity(void)
 {
-  Wire.beginTransmission(BQ34Z100);
-  Wire.write(0x04);
-  Wire.endTransmission();
+  uint8_t low;
+  uint8_t high;
+  //hal.i2c->write(BQ34Z100, 0x04);
+
+  hal.i2c->readRegister(BQ34Z100, 0x04, &low);
   
-  Wire.requestFrom(BQ34Z100,1);
+  //unsigned int low = hal.i2c->receive();
   
-  unsigned int low = Wire.read();
+  //hal.i2c->write(BQ34Z100, 0x05);
   
-  Wire.beginTransmission(BQ34Z100);
-  Wire.write(0x05);
-  Wire.endTransmission();
+  hal.i2c->readRegister(BQ34Z100, 0x05, &high);
   
-  Wire.requestFrom(BQ34Z100,1);
-  
-  unsigned int high = Wire.read();
+  //unsigned int high = hal.i2c->receive();
   
   unsigned int high1 = high<<8;
   
@@ -91,58 +91,52 @@ unsigned int RemainingCapacity(void)
 
 unsigned int readVoltage(void)
 {
-  Wire.beginTransmission(BQ34Z100);
-  Wire.write(0x08);
-  Wire.endTransmission();
-  
-  Wire.requestFrom(BQ34Z100,1);
-  
-  unsigned int low = Wire.read();
-  
-  Wire.beginTransmission(BQ34Z100);
-  Wire.write(0x09);
-  Wire.endTransmission();
-  
-  Wire.requestFrom(BQ34Z100,1);
-  
-  unsigned int high = Wire.read();
-  
-  unsigned int high1 = high<<8;
-  
-  unsigned int voltage = high1 + low;
+  uint8_t low;
+  uint8_t high_t;
 
+  //hal.i2c->write(BQ34Z100, 0x08);
+  hal.i2c->readRegister(BQ34Z100, 0x08, &low);
+  
+  //unsigned int low = hal.i2c->receive();
+  
+  //hal.i2c->write(BQ34Z100, 0x09);  
+  hal.i2c->readRegister(BQ34Z100, 0x09, &high_t);
+  
+  //unsigned int high_t = hal.i2c->receive();
+  
+  unsigned int high = high_t << 8;
+   
+  unsigned int voltage = high + low;
+  
   return voltage;
 
 }
 
 int readCurrent(void)
 {
-  Wire.beginTransmission(BQ34Z100);
-  Wire.write(0x0a);
-  Wire.endTransmission();
+  uint8_t low;
+  uint8_t high_t;
 
-  Wire.requestFrom(BQ34Z100,1);
-
-  unsigned int low = Wire.read();
-
-  Wire.beginTransmission(BQ34Z100);
-  Wire.write(0x0b);
-  Wire.endTransmission();
-
-  Wire.requestFrom(BQ34Z100,1);
+  //hal.i2c->write(BQ34Z100, 0x0a);
+  hal.i2c->readRegister(BQ34Z100, 0x0a, &low);
   
-  unsigned int high_t = Wire.read();
+  //unsigned int low = hal.i2c->receive();
+  
+  //hal.i2c->write(BQ34Z100, 0x0b);
+  hal.i2c->readRegister(BQ34Z100, 0x0b, &high_t);
+  
+  //unsigned int high_t = hal.i2c->receive();
   
   unsigned int high = high_t << 8;
   
-  unsigned int avg_current = high + low;
+  int avg_current = high + low;
   
   return avg_current/10;
 }
 
 static void query_bq34z100(void)
 {  
-    Wire.begin(BQ34Z100);
+    hal.i2c->begin();
 
     state_of_charge = readSOC();
     battery_voltage1 = readVoltage();
