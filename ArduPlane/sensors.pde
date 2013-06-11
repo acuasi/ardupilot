@@ -100,9 +100,9 @@ static void query_bq34z100(void)
 {  
     hal.i2c->begin();
 
-    state_of_charge = readSOC();
-    battery_voltage1 = readVoltage();
-    current_amps1 = readCurrent();
+    state_of_charge = (float)readSOC();
+    battery_voltage1 = (float)readVoltage();
+    current_amps1 = (float)readCurrent();
 
 }
 
