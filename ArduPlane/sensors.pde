@@ -36,83 +36,21 @@ static void zero_airspeed(void)
     gcs_send_text_P(SEVERITY_LOW,PSTR("zero airspeed calibrated"));
 }
 
-// Functions for reading values over I2C from the BQ34Z100 gas gauge chip
-// **********************************************************************
-
-unsigned int readSOC(void)
-{
-  uint8_t low;
-  uint8_t high_t;
-
-  hal.i2c->readRegister(BQ34Z100, 0x02, &low);
-  hal.i2c->readRegister(BQ34Z100, 0x03, &high_t);
-   
-  unsigned int high = high_t << 8;
-  unsigned int soc = high + low;
-  
-  return soc;
-}
-
-unsigned int RemainingCapacity(void)
-{
-  uint8_t low;
-  uint8_t high;
-
-  hal.i2c->readRegister(BQ34Z100, 0x04, &low);
-  hal.i2c->readRegister(BQ34Z100, 0x05, &high);
-  
-  unsigned int high1 = high<<8;
-  unsigned int remain_cap = high1 + low;
-
-  return remain_cap;
-}
-
-unsigned int readVoltage(void)
-{
-    uint8_t voltage;
-    hal.i2c->readRegisters(BQ34Z100, 0x08, 2, &voltage);
-    
-  /* Commenting out for short test.
-  uint8_t low;
-  uint8_t high_t;
-
-  hal.i2c->readRegister(BQ34Z100, 0x08, &low);
-  hal.i2c->readRegister(BQ34Z100, 0x09, &high_t);
-  
-  unsigned int high = high_t << 8;   
-  unsigned int voltage = high + low;
-  
-  */
-  return voltage;
-
-}
-
-int readCurrent(void)
-{
-  uint8_t low;
-  uint8_t high_t;
-
-  hal.i2c->readRegister(BQ34Z100, 0x0a, &low);
-  hal.i2c->readRegister(BQ34Z100, 0x0b, &high_t);
-
-  unsigned int high = high_t << 8;  
-  int avg_current = high + low;
-  
-  return avg_current/10;
-}
-
+// This replaces the read_battery functionality in order to integrate with the BQ34Z00.
 static void query_bq34z100(void)
 {  
     hal.i2c->begin();
+    uint8_t buff[2];
 
-    state_of_charge = (float)readSOC();
-    battery_voltage1 = (float)readVoltage();
-    current_amps1 = (float)readCurrent();
+    // Voltage
+    // Doc todo: why 0x08?
+    hal.i2c->readRegisters(BQ34Z100, 0x08, 2, buff);
+    battery_voltage1 = ((int16_t)buff[1] << 8) + buff[0]; // glue together the two bytes we got back in the right order to yield the correct value
 
+    // Doc todo: why 0x0a, why divide by 10?
+    hal.i2c->readRegisters(BQ34Z100, 0x0a, 2, buff);
+    current_amps1 = (((int16_t)buff[1] << 8) + buff[0]) / 10; // glue together the two bytes received from the i2c bus to yield the correct value
 }
-
-// End of BQ34Z100 function definitions
-// **********************************************************************
 
 static void read_battery(void)
 {
