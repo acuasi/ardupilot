@@ -69,6 +69,10 @@ unsigned int RemainingCapacity(void)
 
 unsigned int readVoltage(void)
 {
+    uint8_t voltage;
+    hal.i2c->readRegisters(BQ34Z100, 0x08, 2, &voltage);
+    
+  /* Commenting out for short test.
   uint8_t low;
   uint8_t high_t;
 
@@ -78,6 +82,7 @@ unsigned int readVoltage(void)
   unsigned int high = high_t << 8;   
   unsigned int voltage = high + low;
   
+  */
   return voltage;
 
 }
