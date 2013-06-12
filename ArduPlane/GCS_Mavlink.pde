@@ -207,6 +207,7 @@ static NOINLINE void send_extended_status1(mavlink_channel_t chan, uint16_t pack
     uint16_t battery_voltage = -1; //Added by Sam Vanderwaal for BQ34Z100
     uint8_t battery_remaining = -1;
 
+    // Assign global battery_voltage1 variable to local scope for transport over MAVLink
     battery_voltage = battery_voltage1;
 
     if (current_total1 != 0 && g.pack_capacity != 0) {
