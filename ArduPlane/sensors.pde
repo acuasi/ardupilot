@@ -50,6 +50,11 @@ static void query_bq34z100(void)
     // Doc todo: why 0x0a, why divide by 10?
     hal.i2c->readRegisters(BQ34Z100, 0x0a, 2, buff);
     current_amps1 = (((int16_t)buff[1] << 8) + buff[0]) / 10; // glue together the two bytes received from the i2c bus to yield the correct value
+
+    // State of charge remaining, as a %
+    hal.i2c->readRegisters(BQ34Z100, 0x02, 2, buff);
+    state_of_charge = (uint8_t)((int16_t)buff[1] << 8) + buff[0]; // glue together the two bytes we got back in the right order to yield the correct value
+
 }
 
 static void read_battery(void)

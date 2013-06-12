@@ -418,11 +418,15 @@ static int32_t altitude_error_cm;
 // Battery Sensors
 ////////////////////////////////////////////////////////////////////////////////
 // Battery pack 1 voltage.  Initialized above the low voltage threshold to pre-load the filter and prevent low voltage events at startup.
-static float battery_voltage1        = LOW_VOLTAGE * 1.05;
+// Changed to uint16 for BQ34Z100;
+static uint16_t  battery_voltage1        = LOW_VOLTAGE * 1.05;
 // Battery pack 1 instantaneous currrent draw.  Amperes
-static float current_amps1;
+static uint16_t current_amps1;
 // Totalized current (Amp-hours) from battery 1
 static float current_total1;
+
+// State of charge remaining, as a %, for the BQ34Z100
+static uint8_t state_of_charge;
 
 // To Do - Add support for second battery pack
 //static float  battery_voltage2    = LOW_VOLTAGE * 1.05;		// Battery 2 Voltage, initialized above threshold for filter

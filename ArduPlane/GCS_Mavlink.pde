@@ -203,37 +203,15 @@ static NOINLINE void send_extended_status1(mavlink_channel_t chan, uint16_t pack
         control_sensors_health &= ~(1<<5); // GPS unhealthy
     }
 
-    uint16_t battery_current = -1;
-    uint16_t battery_voltage = -1; //Added by Sam Vanderwaal for BQ34Z100
-    uint8_t battery_remaining = -1;
-
-    // Assign global battery_voltage1 variable to local scope for transport over MAVLink
-    battery_voltage = battery_voltage1;
-
-    if (current_total1 != 0 && g.pack_capacity != 0) {
-        battery_remaining = (100.0 * (g.pack_capacity - current_total1) / g.pack_capacity);
-    }
-    if (current_total1 != 0) {
-        battery_current = current_amps1 * 100;
-    }
-
-    if (g.battery_monitoring == 3) {
-        /*setting a out-of-range value.
-         *  It informs to external devices that
-         *  it cannot be calculated properly just by voltage*/
-        battery_remaining = 150;
-    }
-
     mavlink_msg_sys_status_send(
         chan,
         control_sensors_present,
         control_sensors_enabled,
         control_sensors_health,
         (uint16_t)(load * 1000),
-        // battery_voltage1 * 1000, // mV
-        battery_voltage,        // mV
-        battery_current,        // in 10mA units
-        battery_remaining,      // in %
+        battery_voltage1,        // mV, global defined in ArduPlane.pde and updated in sensors.pde:query_bq34z100
+        current_amps1,        // in 10mA units (?), global defined in ArduPlane.pde and updated in sensors.pde:query_bq34z100
+        state_of_charge,      // in %, for the BQ34Z100, global defined in ArduPlane.pde and updated in sensors.pde:query_bq34z100
         0, // comm drops %,
         0, // comm drops in pkts,
         0, 0, 0, 0);
