@@ -110,6 +110,8 @@ public:
         k_param_flybywire_elev_reverse,
         k_param_alt_control_algorithm,
         k_param_flybywire_climb_rate,
+        k_param_acro_roll_rate,
+        k_param_acro_pitch_rate,
 
         //
         // 130: Sensor parameters
@@ -189,6 +191,8 @@ public:
         k_param_rc_12,
         k_param_fs_batt_voltage,
         k_param_fs_batt_mah,
+        k_param_short_fs_timeout,
+        k_param_long_fs_timeout,
 
         //
         // 200: Feed-forward gains
@@ -311,6 +315,8 @@ public:
     // Failsafe
     AP_Int8 short_fs_action;
     AP_Int8 long_fs_action;
+    AP_Float short_fs_timeout;
+    AP_Float long_fs_timeout;
     AP_Int8 gcs_heartbeat_fs_enabled;
     AP_Float fs_batt_voltage;
     AP_Float fs_batt_mah;
@@ -329,6 +335,8 @@ public:
     //
     AP_Int16 roll_limit_cd;
     AP_Int16 alt_offset;
+    AP_Int16 acro_roll_rate;
+    AP_Int16 acro_pitch_rate;
 
     // Misc
     //

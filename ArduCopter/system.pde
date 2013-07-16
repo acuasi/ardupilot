@@ -364,9 +364,9 @@ static void set_mode(uint8_t mode)
         set_nav_mode(NAV_NONE);
         // reset acro axis targets to current attitude
 		if(g.axis_enabled){
-            roll_axis 	= ahrs.roll_sensor;
-            pitch_axis 	= ahrs.pitch_sensor;
-            nav_yaw 	= ahrs.yaw_sensor;
+            roll_axis   = 0;
+            pitch_axis  = 0;
+            nav_yaw     = 0;
         }
         break;
 
@@ -420,7 +420,6 @@ static void set_mode(uint8_t mode)
         set_roll_pitch_mode(POSITION_RP);
         set_throttle_mode(POSITION_THR);
         set_nav_mode(POSITION_NAV);
-        wp_nav.clear_angle_limit();     // ensure there are no left over angle limits from throttle controller.  To-Do: move this to the exit routine of throttle controller
         break;
 
     case GUIDED:

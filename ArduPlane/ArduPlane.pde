@@ -1,6 +1,6 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-#define THISFIRMWARE "ArduPlane V2.74beta2"
+#define THISFIRMWARE "ArduPlane V2.74b"
 /*
  *  Lead developer: Andrew Tridgell
  *
@@ -447,6 +447,8 @@ static struct {
     float current_total_mah;
     // true when a low battery event has happened
     bool low_batttery;
+    // time when current was last read
+    uint32_t last_time_ms;
 } battery;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -455,7 +457,23 @@ static struct {
 AP_Airspeed airspeed;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Altitude Sensor variables
+// ACRO controller state
+////////////////////////////////////////////////////////////////////////////////
+static struct {
+    bool locked_roll;
+    bool locked_pitch;
+    float locked_roll_err;
+    int32_t locked_pitch_cd;
+} acro_state;
+
+////////////////////////////////////////////////////////////////////////////////
+// CRUISE controller state
+////////////////////////////////////////////////////////////////////////////////
+static struct {
+    bool locked_heading;
+    int32_t locked_heading_cd;
+    uint32_t lock_timer_ms;
+} cruise_state;
 
 ////////////////////////////////////////////////////////////////////////////////
 // flight mode specific
@@ -495,8 +513,7 @@ static int32_t nav_pitch_cd;
 // Waypoint distances
 ////////////////////////////////////////////////////////////////////////////////
 // Distance between plane and next waypoint.  Meters
-// is not static because AP_Camera uses it
-uint32_t wp_distance;
+static uint32_t wp_distance;
 
 // Distance between previous and next waypoint.  Meters
 static uint32_t wp_totalDistance;
@@ -785,10 +802,12 @@ static void fast_loop()
  */
 static void update_speed_height(void)
 {
-    if (g.alt_control_algorithm == ALT_CONTROL_TECS && 
-        auto_throttle_mode && !throttle_suppressed) {
-        // Call TECS 50Hz update
-        SpdHgt_Controller->update_50hz();
+    if ((g.alt_control_algorithm == ALT_CONTROL_TECS ||
+         g.alt_control_algorithm == ALT_CONTROL_DEFAULT) &&
+        auto_throttle_mode && !throttle_suppressed) 
+    {
+	    // Call TECS 50Hz update
+        SpdHgt_Controller->update_50hz(relative_altitude());
     }
 }
 
@@ -960,7 +979,7 @@ static void update_GPS(void)
 
         if(ground_start_count > 1) {
             ground_start_count--;
-            ground_start_avg += g_gps->ground_speed;
+            ground_start_avg += g_gps->ground_speed_cm;
 
         } else if (ground_start_count == 1) {
             // We countdown N number of good GPS fixes
@@ -993,7 +1012,9 @@ static void update_GPS(void)
         geofence_check(false);
 
 #if CAMERA == ENABLED
-        camera.update_location(current_loc);
+        if (camera.update_location(current_loc) == true) {
+            do_take_picture();
+        }
 #endif        
     }
 
@@ -1022,7 +1043,7 @@ static void update_flight_mode(void)
                 if (nav_pitch_cd < takeoff_pitch_cd)
                     nav_pitch_cd = takeoff_pitch_cd;
             } else {
-                nav_pitch_cd = (g_gps->ground_speed / (float)g.airspeed_cruise_cm) * takeoff_pitch_cd;
+                nav_pitch_cd = (g_gps->ground_speed_cm / (float)g.airspeed_cruise_cm) * takeoff_pitch_cd;
                 nav_pitch_cd = constrain_int32(nav_pitch_cd, 500, takeoff_pitch_cd);
             }
 
@@ -1112,6 +1133,21 @@ static void update_flight_mode(void)
             break;
         }
 
+        case ACRO: {
+            // handle locked/unlocked control
+            if (acro_state.locked_roll) {
+                nav_roll_cd = acro_state.locked_roll_err;
+            } else {
+                nav_roll_cd = ahrs.roll_sensor;
+            }
+            if (acro_state.locked_pitch) {
+                nav_pitch_cd = acro_state.locked_pitch_cd;
+            } else {
+                nav_pitch_cd = ahrs.pitch_sensor;
+            }
+            break;
+        }
+
         case FLY_BY_WIRE_A: {
             // set nav_roll and nav_pitch using sticks
             nav_roll_cd  = channel_roll->norm_input() * g.roll_limit_cd;
@@ -1129,42 +1165,30 @@ static void update_flight_mode(void)
             break;
         }
 
-        case FLY_BY_WIRE_B: {
-            static float last_elevator_input;
-            // Substitute stick inputs for Navigation control output
-            // We use g.pitch_limit_min because its magnitude is
-            // normally greater than g.pitch_limit_max
-
+        case FLY_BY_WIRE_B:
             // Thanks to Yury MonZon for the altitude limit code!
-
             nav_roll_cd = channel_roll->norm_input() * g.roll_limit_cd;
+            update_fbwb_speed_height();
+            break;
 
-            float elevator_input;
-            elevator_input = channel_pitch->norm_input();
+        case CRUISE:
+            /*
+              in CRUISE mode we use the navigation code to control
+              roll when heading is locked. Heading becomes unlocked on
+              any aileron or rudder input
+             */
+            if ((channel_roll->control_in != 0 ||
+                 channel_rudder->control_in != 0)) {                
+                cruise_state.locked_heading = false;
+                cruise_state.lock_timer_ms = 0;
+            }                 
 
-            if (g.flybywire_elev_reverse) {
-                elevator_input = -elevator_input;
+            if (!cruise_state.locked_heading) {
+                nav_roll_cd = channel_roll->norm_input() * g.roll_limit_cd;
+            } else {
+                calc_nav_roll();
             }
-
-            target_altitude_cm += g.flybywire_climb_rate * elevator_input * delta_ms_fast_loop * 0.1f;
-
-            if (elevator_input == 0.0f && last_elevator_input != 0.0f) {
-                // the user has just released the elevator, lock in
-                // the current altitude
-                target_altitude_cm = current_loc.alt;
-            }
-
-            // check for FBWB altitude limit
-            if (g.FBWB_min_altitude_cm != 0 && target_altitude_cm < home.alt + g.FBWB_min_altitude_cm) {
-                target_altitude_cm = home.alt + g.FBWB_min_altitude_cm;
-            }
-            altitude_error_cm = target_altitude_cm - adjusted_altitude_cm();
-
-            last_elevator_input = elevator_input;
-
-            calc_throttle();
-            calc_nav_pitch();
-        }
+            update_fbwb_speed_height();
             break;
 
         case STABILIZE:
@@ -1217,10 +1241,15 @@ static void update_navigation()
         update_loiter();
         break;
 
+    case CRUISE:
+        update_cruise();
+        break;
+
     case MANUAL:
     case STABILIZE:
     case TRAINING:
     case INITIALISING:
+    case ACRO:
     case FLY_BY_WIRE_A:
     case FLY_BY_WIRE_B:
     case CIRCLE:
@@ -1236,10 +1265,12 @@ static void update_alt()
     //altitude_sensor = BARO;
 
     if (barometer.healthy) {
-        current_loc.alt = (1 - g.altitude_mix) * g_gps->altitude;                       // alt_MSL centimeters (meters * 100)
+        // alt_MSL centimeters (centimeters)
+        current_loc.alt = (1 - g.altitude_mix) * g_gps->altitude_cm;
         current_loc.alt += g.altitude_mix * (read_barometer() + home.alt);
     } else if (g_gps->status() >= GPS::GPS_OK_FIX_3D) {
-        current_loc.alt = g_gps->altitude;     // alt_MSL centimeters (meters * 100)
+        // alt_MSL centimeters (centimeters)
+        current_loc.alt = g_gps->altitude_cm;
     }
 
     geofence_check(true);
@@ -1249,11 +1280,14 @@ static void update_alt()
     //	add_altitude_data(millis() / 100, g_gps->altitude / 10);
 
     // Update the speed & height controller states
-    if (g.alt_control_algorithm == ALT_CONTROL_TECS && 
+    if ((g.alt_control_algorithm == ALT_CONTROL_TECS || g.alt_control_algorithm == ALT_CONTROL_DEFAULT) &&
         auto_throttle_mode && !throttle_suppressed) {
-        SpdHgt_Controller->update_pitch_throttle(target_altitude_cm - home.alt, target_airspeed_cm, 
+        SpdHgt_Controller->update_pitch_throttle(target_altitude_cm - home.alt + (int32_t(g.alt_offset)*100), 
+                                                 target_airspeed_cm,
                                                  (control_mode==AUTO && takeoff_complete == false), 
-                                                 takeoff_pitch_cd);
+                                                 takeoff_pitch_cd,
+                                                 throttle_nudge,
+                                                 relative_altitude());
         if (g.log_bitmask & MASK_LOG_TECS) {
             Log_Write_TECS_Tuning();
         }

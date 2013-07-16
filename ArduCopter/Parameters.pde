@@ -191,13 +191,6 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @User: Standard
     GSCALAR(rssi_pin,            "RSSI_PIN",         -1),
 
-    // @Param: THR_ACC_ENABLE
-    // @DisplayName: Enable Accel based throttle controller
-    // @Description: This allows enabling and disabling the accelerometer based throttle controller.  If disabled a velocity based controller is used.
-    // @Values: 0:Disabled, 1:Enabled
-    // @User: Standard
-    GSCALAR(throttle_accel_enabled,  "THR_ACC_ENABLE",   1),
-
     // @Param: WP_YAW_BEHAVIOR
     // @DisplayName: Yaw behaviour during missions
     // @Description: Determines how the autopilot controls the yaw during missions and RTL
@@ -1077,7 +1070,6 @@ static void load_parameters(void)
 
         // save the current format version
         g.format_version.set_and_save(Parameters::k_format_version);
-        default_dead_zones();
         cliSerial->println_P(PSTR("done."));
     } else {
         uint32_t before = micros();

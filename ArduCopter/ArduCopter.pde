@@ -1,6 +1,6 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-#define THISFIRMWARE "ArduCopter V3.0.1-rc1"
+#define THISFIRMWARE "ArduCopter V3.0.1"
 /*
  *  ArduCopter Version 3.0
  *  Creator:        Jason Short
@@ -240,22 +240,22 @@ static AP_Compass_HMC5843 compass;
 AP_GPS_Auto     g_gps_driver(&g_gps);
 
  #elif GPS_PROTOCOL == GPS_PROTOCOL_NMEA
-AP_GPS_NMEA     g_gps_driver();
+AP_GPS_NMEA     g_gps_driver;
 
  #elif GPS_PROTOCOL == GPS_PROTOCOL_SIRF
-AP_GPS_SIRF     g_gps_driver();
+AP_GPS_SIRF     g_gps_driver;
 
  #elif GPS_PROTOCOL == GPS_PROTOCOL_UBLOX
-AP_GPS_UBLOX    g_gps_driver();
+AP_GPS_UBLOX    g_gps_driver;
 
  #elif GPS_PROTOCOL == GPS_PROTOCOL_MTK
-AP_GPS_MTK      g_gps_driver();
+AP_GPS_MTK      g_gps_driver;
 
  #elif GPS_PROTOCOL == GPS_PROTOCOL_MTK19
-AP_GPS_MTK19    g_gps_driver();
+AP_GPS_MTK19    g_gps_driver;
 
  #elif GPS_PROTOCOL == GPS_PROTOCOL_NONE
-AP_GPS_None     g_gps_driver();
+AP_GPS_None     g_gps_driver;
 
  #else
   #error Unrecognised GPS_PROTOCOL setting.
@@ -494,8 +494,8 @@ static int32_t original_wp_bearing;
 static int32_t home_bearing;
 // distance between plane and home in cm
 static int32_t home_distance;
-// distance between plane and next waypoint in cm.  is not static because AP_Camera uses it
-uint32_t wp_distance;
+// distance between plane and next waypoint in cm.
+static uint32_t wp_distance;
 // navigation mode - options include NAV_NONE, NAV_LOITER, NAV_CIRCLE, NAV_WP
 static uint8_t nav_mode;
 // Register containing the index of the current navigation command in the mission script
@@ -1374,7 +1374,9 @@ static void update_GPS(void)
         }
 
 #if CAMERA == ENABLED
-        camera.update_location(current_loc);
+        if (camera.update_location(current_loc) == true) {
+            do_take_picture();
+        }
 #endif                
     }
 
@@ -1464,7 +1466,7 @@ void update_yaw_mode(void)
     case YAW_ACRO:
         // pilot controlled yaw using rate controller
         if(g.axis_enabled) {
-            get_yaw_rate_stabilized_ef(g.rc_4.control_in);
+            get_yaw_rate_stabilized_bf(g.rc_4.control_in);
         }else{
             get_acro_yaw(g.rc_4.control_in);
         }
@@ -1623,8 +1625,8 @@ void update_roll_pitch_mode(void)
 
 #if FRAME_CONFIG == HELI_FRAME
 		if(g.axis_enabled) {
-            get_roll_rate_stabilized_ef(g.rc_1.control_in);
-            get_pitch_rate_stabilized_ef(g.rc_2.control_in);
+            get_roll_rate_stabilized_bf(g.rc_1.control_in);
+            get_pitch_rate_stabilized_bf(g.rc_2.control_in);
         }else{
             // ACRO does not get SIMPLE mode ability
             if (motors.flybar_mode == 1) {
@@ -1637,8 +1639,8 @@ void update_roll_pitch_mode(void)
 		}
 #else  // !HELI_FRAME
 		if(g.axis_enabled) {
-            get_roll_rate_stabilized_ef(g.rc_1.control_in);
-            get_pitch_rate_stabilized_ef(g.rc_2.control_in);
+            get_roll_rate_stabilized_bf(g.rc_1.control_in);
+            get_pitch_rate_stabilized_bf(g.rc_2.control_in);
         }else{
             // ACRO does not get SIMPLE mode ability
             get_acro_roll(g.rc_1.control_in);
@@ -2016,7 +2018,7 @@ static void update_altitude()
 {
 #if HIL_MODE == HIL_MODE_ATTITUDE
     // we are in the SIM, fake out the baro and Sonar
-    baro_alt                = g_gps->altitude - gps_base_alt;
+    baro_alt                = g_gps->altitude_cm - gps_base_alt;
 
     if(g.sonar_enabled) {
         sonar_alt           = baro_alt;
