@@ -152,8 +152,7 @@ void AP_SmartBattery_BQ34Z100::write_register(uint8_t address, uint8_t value)
 }
 
 // reset sensor by holding a pin high (or is it low?) for 10us.
-void
-AP_SmartBattery_BQ34Z100::reset()
+void AP_SmartBattery_BQ34Z100::reset()
 {
     // return immediately if the reset pin is not defined
     if( _reset_pin == 0)
@@ -167,8 +166,7 @@ AP_SmartBattery_BQ34Z100::reset()
 }
 
 // read latest values from sensor and fill in x,y and totals
-void
-AAP_SmartBattery_BQ34Z100::update(uint32_t now)
+void AAP_SmartBattery_BQ34Z100::update(uint32_t now)
 {
     uint8_t motion_reg;
     surface_quality = read_register(ADNS3080_SQUAL);
