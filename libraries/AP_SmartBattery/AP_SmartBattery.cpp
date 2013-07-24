@@ -10,19 +10,13 @@
 
 #include "AP_SmartBattery.h"
 
-// pointer to the last instantiated optical flow sensor.  Will be turned into
+// pointer to the last instantiated battery sensor.  Will be turned into
 // a table if we ever add support for more than one sensor
 AP_SmartBattery* AP_SmartBattery::_sensor = NULL;
 
 // number of times we have been called by 1khz timer process.
 // We use this to throttle read down to 20hz
 uint8_t AP_SmartBattery::_num_calls;
-
-bool AP_SmartBattery::init()
-{
-    return true;      // just return true by default
-}
-
 
 // parent method called at 1khz by periodic process
 // this is slowed down to 1hz and each instance's update function is called
@@ -41,12 +35,7 @@ void AP_SmartBattery::read(uint32_t now)
 };
 
 // read value from the sensor.  Should be overridden by derived class
-void AP_SmartBattery::update(uint32_t now){ }
-
-// reads a value from the sensor (will be sensor specific)
-uint8_t AP_SmartBattery::read_register(uint8_t address){ return 0; }
-
-// writes a value to one of the sensor's register (will be sensor specific)
-void AP_SmartBattery::write_register(uint8_t address, uint8_t value) {}
-
-
+virtual void AP_SmartBattery::update(uint32_t now){ }
+virtual unsigned int AP_SmartBattery::readVoltage(void){ };
+virtual unsigned int AP_SmartBattery::readCurrent(void){ };
+virtual unsigned int AP_SmartBattery::readStateOfCharge(void){ };
