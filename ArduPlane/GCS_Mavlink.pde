@@ -28,7 +28,7 @@ static NOINLINE void send_heartbeat(mavlink_channel_t chan)
     uint8_t system_status = MAV_STATE_ACTIVE;
     uint32_t custom_mode = control_mode;
     
-    if (failsafe != FAILSAFE_NONE) {
+    if (failsafe.state != FAILSAFE_NONE) {
         system_status = MAV_STATE_CRITICAL;
     }
 
@@ -235,7 +235,7 @@ static NOINLINE void send_extended_status1(mavlink_channel_t chan, uint16_t pack
         control_sensors_present,
         control_sensors_enabled,
         control_sensors_health,
-        (uint16_t)(load * 1000),
+        (uint16_t)(scheduler.load_average(20000) * 1000),
         battery.voltage * 1000, // mV
         battery_current,        // in 10mA units
         battery_remaining,      // in %
@@ -846,7 +846,7 @@ const AP_Param::GroupInfo GCS_MAVLINK::var_info[] PROGMEM = {
     // @Range: 0 10
     // @Increment: 1
     // @User: Advanced
-    AP_GROUPINFO("PARAMS",   8, GCS_MAVLINK, streamRates[8],  50),
+    AP_GROUPINFO("PARAMS",   8, GCS_MAVLINK, streamRates[8],  10),
     AP_GROUPEND
 };
 
@@ -976,7 +976,7 @@ GCS_MAVLINK::data_stream_send(void)
 
     if (_queued_parameter != NULL) {
         if (streamRates[STREAM_PARAMS].get() <= 0) {
-            streamRates[STREAM_PARAMS].set(50);
+            streamRates[STREAM_PARAMS].set(10);
         }
         if (stream_trigger(STREAM_PARAMS)) {
             send_message(MSG_NEXT_PARAM);
@@ -1911,7 +1911,7 @@ mission_failed:
 
         // a RC override message is consiered to be a 'heartbeat' from
         // the ground station for failsafe purposes
-        last_heartbeat_ms = millis();
+        failsafe.last_heartbeat_ms = millis();
         break;
     }
 
@@ -1920,7 +1920,7 @@ mission_failed:
         // We keep track of the last time we received a heartbeat from
         // our GCS for failsafe purposes
         if (msg->sysid != g.sysid_my_gcs) break;
-        last_heartbeat_ms = millis();
+        failsafe.last_heartbeat_ms = millis();
         break;
     }
 

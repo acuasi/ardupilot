@@ -284,10 +284,10 @@
  # define FLIGHT_MODE_2                  RTL
 #endif
 #if !defined(FLIGHT_MODE_3)
- # define FLIGHT_MODE_3                  STABILIZE
+ # define FLIGHT_MODE_3                  FLY_BY_WIRE_A
 #endif
 #if !defined(FLIGHT_MODE_4)
- # define FLIGHT_MODE_4                  STABILIZE
+ # define FLIGHT_MODE_4                  FLY_BY_WIRE_A
 #endif
 #if !defined(FLIGHT_MODE_5)
  # define FLIGHT_MODE_5                  MANUAL
@@ -349,13 +349,6 @@
 //
 #ifndef GROUND_START_DELAY
  # define GROUND_START_DELAY             0
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
-// ENABLE_AIR_START
-//
-#ifndef ENABLE_AIR_START
- # define ENABLE_AIR_START               DISABLED
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -435,7 +428,7 @@
 // FLY_BY_WIRE_B airspeed control
 //
 #ifndef AIRSPEED_FBW_MIN
- # define AIRSPEED_FBW_MIN               6
+ # define AIRSPEED_FBW_MIN               9
 #endif
 #ifndef AIRSPEED_FBW_MAX
  # define AIRSPEED_FBW_MAX               22
@@ -510,9 +503,6 @@
  # define SERVO_ROLL_INT_MAX   5
 #endif
 #define SERVO_ROLL_INT_MAX_CENTIDEGREE SERVO_ROLL_INT_MAX*100
-#ifndef ROLL_SLEW_LIMIT
- # define ROLL_SLEW_LIMIT      0
-#endif
 #ifndef SERVO_PITCH_P
  # define SERVO_PITCH_P        0.6
 #endif
@@ -604,9 +594,6 @@
 #endif
 #ifndef THROTTLE_TE_INT_MAX
  # define THROTTLE_TE_INT_MAX  20
-#endif
-#ifndef THROTTLE_SLEW_LIMIT
- # define THROTTLE_SLEW_LIMIT  0
 #endif
 #ifndef PITCH_TARGET
  # define PITCH_TARGET         0
@@ -720,6 +707,6 @@
 #endif
 
 #ifndef SERIAL_BUFSIZE
- # define SERIAL_BUFSIZE 256
+ # define SERIAL_BUFSIZE 512
 #endif
 

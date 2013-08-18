@@ -199,7 +199,7 @@ static NOINLINE void send_extended_status1(mavlink_channel_t chan, uint16_t pack
         control_sensors_present,
         control_sensors_enabled,
         control_sensors_health,
-        0, // CPU Load not supported in AC yet
+        (uint16_t)(scheduler.load_average(10000) * 1000),
         battery_voltage1 * 1000, // mV
         battery_current,        // in 10mA units
         battery_remaining,      // in %
@@ -1268,22 +1268,7 @@ void GCS_MAVLINK::handleMessage(mavlink_message_t* msg)
             // custom_mode instead.
             break;
         }
-        switch (packet.custom_mode) {
-        case STABILIZE:
-        case ACRO:
-        case ALT_HOLD:
-        case AUTO:
-        case GUIDED:
-        case LOITER:
-        case RTL:
-        case CIRCLE:
-        case POSITION:
-        case LAND:
-        case OF_LOITER:
-            set_mode(packet.custom_mode);
-            break;
-        }
-
+        set_mode(packet.custom_mode);
         break;
     }
 

@@ -440,7 +440,7 @@ AP_AHRS_DCM::drift_correction(float deltat)
     drift_correction_yaw();
 
     // apply trim
-    temp_dcm.rotate(_trim);
+    temp_dcm.rotateXY(_trim);
 
     // rotate accelerometer values into the earth frame
     _accel_ef = temp_dcm * _accel_vector;
@@ -711,7 +711,7 @@ void AP_AHRS_DCM::estimate_wind(Vector3f &velocity)
     } else if (now - _last_wind_time > 2000 && _airspeed && _airspeed->use()) {
         // when flying straight use airspeed to get wind estimate if available
         Vector3f airspeed = _dcm_matrix.colx() * _airspeed->get_airspeed();
-        Vector3f wind = velocity - airspeed;
+        Vector3f wind = velocity - (airspeed * get_EAS2TAS());
         _wind = _wind * 0.92f + wind * 0.08f;
     }    
 }
@@ -765,13 +765,13 @@ float AP_AHRS_DCM::get_error_yaw(void)
 
 // return our current position estimate using
 // dead-reckoning or GPS
-bool AP_AHRS_DCM::get_position(struct Location *loc)
+bool AP_AHRS_DCM::get_position(struct Location &loc)
 {
     if (!_have_position) {
         return false;
     }
-    loc->lat = _last_lat;
-    loc->lng = _last_lng;
+    loc.lat = _last_lat;
+    loc.lng = _last_lng;
     location_offset(loc, _position_offset_north, _position_offset_east);
     return true;
 }
@@ -799,9 +799,11 @@ bool AP_AHRS_DCM::airspeed_estimate(float *airspeed_ret)
 		// constrain the airspeed by the ground speed
 		// and AHRS_WIND_MAX
         float gnd_speed = _gps->ground_speed_cm*0.01f;
-		*airspeed_ret = constrain_float(*airspeed_ret, 
+        float true_airspeed = *airspeed_ret * get_EAS2TAS();
+		true_airspeed = constrain_float(true_airspeed,
                                         gnd_speed - _wind_max, 
                                         gnd_speed + _wind_max);
+        *airspeed_ret = true_airspeed / get_EAS2TAS();
 	}
 	return ret;
 }

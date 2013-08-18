@@ -1,18 +1,26 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-#define THISFIRMWARE "ArduPlane V2.74b"
+#define THISFIRMWARE "ArduPlane V2.75beta1"
 /*
- *  Lead developer: Andrew Tridgell
- *
- *  Authors:    Doug Weibel, Jose Julio, Jordi Munoz, Jason Short, Randy Mackay, Pat Hickey, John Arne Birkeland, Olivier Adler, Amilcar Lucas, Gregory Fletcher, Paul Riseborough, Brandon Jones, Jon Challinger
- *  Thanks to:  Chris Anderson, Michael Oborne, Paul Mather, Bill Premerlani, James Cohen, JB from rotorFX, Automatik, Fefenin, Peter Meister, Remzibi, Yury Smirnov, Sandro Benigno, Max Levine, Roberto Navoni, Lorenz Meier, Yury MonZon
- *  Please contribute your ideas!
- *
- *
- *  This firmware is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Lesser General Public
- *  License as published by the Free Software Foundation; either
- *  version 2.1 of the License, or (at your option) any later version.
+   Lead developer: Andrew Tridgell
+ 
+   Authors:    Doug Weibel, Jose Julio, Jordi Munoz, Jason Short, Randy Mackay, Pat Hickey, John Arne Birkeland, Olivier Adler, Amilcar Lucas, Gregory Fletcher, Paul Riseborough, Brandon Jones, Jon Challinger
+   Thanks to:  Chris Anderson, Michael Oborne, Paul Mather, Bill Premerlani, James Cohen, JB from rotorFX, Automatik, Fefenin, Peter Meister, Remzibi, Yury Smirnov, Sandro Benigno, Max Levine, Roberto Navoni, Lorenz Meier, Yury MonZon
+
+   Please contribute your ideas! See http://dev.ardupilot.com for details
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,6 +78,10 @@
 
 // Local modules
 #include "defines.h"
+
+// key aircraft parameters passed to the speed/height controller
+static AP_SpdHgtControl::AircraftParameters aparm;
+
 #include "Parameters.h"
 #include "GCS.h"
 
@@ -102,9 +114,6 @@ static const AP_InertialSensor::Sample_rate ins_sample_rate = AP_InertialSensor:
 // Global parameters are all contained within the 'g' class.
 //
 static Parameters g;
-
-// key aircraft parameters passed to the speed/height controller
-static AP_SpdHgtControl::AircraftParameters aparm;
 
 // main loop scheduler
 static AP_Scheduler scheduler;
@@ -237,8 +246,14 @@ AP_InertialSensor_Oilpan ins( &apm1_adc );
 
 AP_AHRS_DCM ahrs(&ins, g_gps);
 
-static AP_L1_Control L1_controller(&ahrs);
-static AP_TECS TECS_controller(&ahrs, &barometer, aparm);
+static AP_L1_Control L1_controller(ahrs);
+static AP_TECS TECS_controller(ahrs, aparm);
+
+// Attitude to servo controllers
+static AP_RollController  rollController(ahrs, aparm);
+static AP_PitchController pitchController(ahrs, aparm);
+static AP_YawController   yawController(ahrs, aparm);
+
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_AVR_SITL
 SITL sitl;
@@ -333,24 +348,38 @@ static struct {
     ch2_temp : 1500
 };
 
-// A flag if GCS joystick control is in use
-static bool rc_override_active = false;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Failsafe
 ////////////////////////////////////////////////////////////////////////////////
-// A tracking variable for type of failsafe active
-// Used for failsafe based on loss of RC signal or GCS signal
-static int16_t failsafe;
-// Used to track if the value on channel 3 (throtttle) has fallen below the failsafe threshold
-// RC receiver should be set up to output a low throttle value when signal is lost
-static bool ch3_failsafe;
+static struct {
+    // A flag if GCS joystick control is in use
+    uint8_t rc_override_active:1;
 
-// the time when the last HEARTBEAT message arrived from a GCS
-static uint32_t last_heartbeat_ms;
+    // Used to track if the value on channel 3 (throtttle) has fallen below the failsafe threshold
+    // RC receiver should be set up to output a low throttle value when signal is lost
+    uint8_t ch3_failsafe:1;
 
-// A timer used to track how long we have been in a "short failsafe" condition due to loss of RC signal
-static uint32_t ch3_failsafe_timer = 0;
+    // has the saved mode for failsafe been set?
+    uint8_t saved_mode_set:1;
+
+    // saved flight mode
+    enum FlightMode saved_mode;
+
+    // A tracking variable for type of failsafe active
+    // Used for failsafe based on loss of RC signal or GCS signal
+    int16_t state;
+
+    // number of low ch3 values
+    uint8_t ch3_counter;
+
+    // the time when the last HEARTBEAT message arrived from a GCS
+    uint32_t last_heartbeat_ms;
+
+    // A timer used to track how long we have been in a "short failsafe" condition due to loss of RC signal
+    uint32_t ch3_timer_ms;
+} failsafe;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // LED output
@@ -405,13 +434,6 @@ static int32_t target_airspeed_cm;
 // The difference between current and desired airspeed.  Used in the pitch controller.  Centimeters per second.
 static float airspeed_error_cm;
 
-// The calculated total energy error (kinetic (altitude) plus potential (airspeed)).
-// Used by the throttle controller
-static int32_t energy_error;
-
-// kinetic portion of energy error (m^2/s^2)
-static int32_t airspeed_energy_error;
-
 // An amount that the airspeed should be increased in auto modes based on the user positioning the
 // throttle stick in the top half of the range.  Centimeters per second.
 static int16_t airspeed_nudge_cm;
@@ -455,6 +477,7 @@ static struct {
 // Airspeed Sensors
 ////////////////////////////////////////////////////////////////////////////////
 AP_Airspeed airspeed;
+Airspeed_Calibration airspeed_calibration;
 
 ////////////////////////////////////////////////////////////////////////////////
 // ACRO controller state
@@ -635,18 +658,11 @@ static uint8_t gps_fix_count = 0;
 // Time in miliseconds of start of main control loop.  Milliseconds
 static uint32_t fast_loopTimer_ms;
 
-// Time Stamp when fast loop was complete.  Milliseconds
-static uint32_t fast_loopTimeStamp_ms;
-
 // Number of milliseconds used in last main loop cycle
 static uint8_t delta_ms_fast_loop;
 
 // Counter of main loop executions.  Used for performance monitoring and failsafe processing
 static uint16_t mainLoop_count;
-
-// % MCU cycles used
-static float load;
-
 
 // Camera/Antenna mount tracking and stabilisation stuff
 // --------------------------------------
@@ -677,31 +693,32 @@ AP_Mount camera_mount2(&current_loc, g_gps, &ahrs, 1);
   microseconds)
  */
 static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
-    { update_speed_height,    1,    900 },
+    { update_speed_height,    1,    900 }, // 0
     { update_flight_mode,     1,   1000 },
     { stabilize,              1,   3200 },
     { set_servos,             1,   1100 },
+    { read_control_switch,    7,   1000 },
     { update_GPS,             5,   4000 },
     { navigate,               5,   4800 },
     { update_compass,         5,   1500 },
     { read_airspeed,          5,   1500 },
-    { read_control_switch,   15,   1000 },
     { update_alt,             5,   3400 },
-    { calc_altitude_error,    5,   1000 },
+    { calc_altitude_error,    5,   1000 }, // 10
     { update_commands,        5,   7000 },
     { obc_fs_check,           5,   1000 },
     { gcs_update,             1,   1700 },
-    { gcs_data_stream_send,   2,   3000 },
+    { gcs_data_stream_send,   1,   3000 },
     { update_mount,           1,   1500 },
     { update_events,		 15,   1500 },
     { check_usb_mux,          5,   1000 },
     { read_battery,           5,   1000 },
     { compass_accumulate,     1,   1500 },
-    { barometer_accumulate,   1,    900 },
+    { barometer_accumulate,   1,    900 }, // 20
     { one_second_loop,       50,   3900 },
-    { update_logging,         5,   1000 },
-    { read_receiver_rssi,     5,   1000 },
     { check_long_failsafe,   15,   1000 },
+    { airspeed_ratio_update, 50,   1000 },
+    { update_logging,         5,   1200 },
+    { read_receiver_rssi,     5,   1000 },
 };
 
 // setup the var_info table
@@ -737,7 +754,6 @@ void loop()
     uint16_t num_samples = ins.num_samples_available();
     if (num_samples >= 1) {
         delta_ms_fast_loop      = timer - fast_loopTimer_ms;
-        load                = (float)(fast_loopTimeStamp_ms - fast_loopTimer_ms)/delta_ms_fast_loop;
         G_Dt                = delta_ms_fast_loop * 0.001f;
         fast_loopTimer_ms   = timer;
 
@@ -750,16 +766,12 @@ void loop()
         // tell the scheduler one tick has passed
         scheduler.tick();
 
-        fast_loopTimeStamp_ms = millis();
-    } else {
-        uint16_t dt = timer - fast_loopTimer_ms;
-        // we use 19 not 20 here to ensure we run the next loop on
-        // time - it means we spin for 5% of the time when waiting for
-        // the next sample from the IMU
-        if (dt < 19) {
-            uint16_t time_to_next_loop = 19 - dt;
-            scheduler.run(time_to_next_loop * 1000U);
-        }
+        // run all the tasks that are due to run. Note that we only
+        // have to call this once per loop, as the tasks are scheduled
+        // in multiples of the main loop tick. So if they don't run on
+        // the first call to the scheduler they won't run on a later
+        // call until scheduler.tick() is called again
+        scheduler.run(19000U);
     }
 }
 
@@ -802,11 +814,10 @@ static void fast_loop()
  */
 static void update_speed_height(void)
 {
-    if ((g.alt_control_algorithm == ALT_CONTROL_TECS ||
-         g.alt_control_algorithm == ALT_CONTROL_DEFAULT) &&
-        auto_throttle_mode && !throttle_suppressed) 
-    {
-	    // Call TECS 50Hz update
+    if (auto_throttle_mode) {
+	    // Call TECS 50Hz update. Note that we call this regardless of
+	    // throttle suppressed, as this needs to be running for
+	    // takeoff detection
         SpdHgt_Controller->update_50hz(relative_altitude());
     }
 }
@@ -887,7 +898,7 @@ static void obc_fs_check(void)
 #if OBC_FAILSAFE == ENABLED
     // perform OBC failsafe checks
     obc.check(OBC_MODE(control_mode),
-              last_heartbeat_ms,
+              failsafe.last_heartbeat_ms,
               g_gps ? g_gps->last_fix_time : 0);
 #endif
 }
@@ -952,6 +963,21 @@ static void one_second_loop()
 }
 
 /*
+  once a second update the airspeed calibration ratio
+ */
+static void airspeed_ratio_update(void)
+{
+    if (!airspeed.enabled() ||
+        g_gps->status() < GPS::GPS_OK_FIX_3D ||
+        g_gps->ground_speed_cm < 400 ||
+        airspeed.get_airspeed() < aparm.airspeed_min) {
+        return;
+    }
+    airspeed.update_calibration(g_gps->velocity_vector());
+}
+
+
+/*
   read the GPS and update position
  */
 static void update_GPS(void)
@@ -968,7 +994,7 @@ static void update_GPS(void)
     }
 
     // get position from AHRS
-    have_position = ahrs.get_position(&current_loc);
+    have_position = ahrs.get_position(current_loc);
 
     if (g_gps->new_data && g_gps->status() >= GPS::GPS_OK_FIX_3D) {
         g_gps->new_data = false;
@@ -989,16 +1015,7 @@ static void update_GPS(void)
                 ground_start_count = 5;
 
             } else {
-                if(ENABLE_AIR_START == 1 && (ground_start_avg / 5) < SPEEDFILT) {
-                    startup_ground();
-
-                    if (g.log_bitmask & MASK_LOG_CMD)
-                        Log_Write_Startup(TYPE_GROUNDSTART_MSG);
-
-                    init_home();
-                } else if (ENABLE_AIR_START == 0) {
-                    init_home();
-                }
+                init_home();
 
                 if (g.compass_enabled) {
                     // Set compass declination automatically
@@ -1038,7 +1055,7 @@ static void update_flight_mode(void)
 				nav_roll_cd = constrain_int32(nav_roll_cd, -g.level_roll_limit*100UL, g.level_roll_limit*100UL);
             }
 
-            if (alt_control_airspeed()) {
+            if (airspeed.use()) {
                 calc_nav_pitch();
                 if (nav_pitch_cd < takeoff_pitch_cd)
                     nav_pitch_cd = takeoff_pitch_cd;
@@ -1064,7 +1081,7 @@ static void update_flight_mode(void)
                 nav_pitch_cd = g.land_pitch_cd;
             } else {
                 calc_nav_pitch();
-                if (!alt_control_airspeed()) {
+                if (!airspeed.use()) {
                     // when not under airspeed control, don't allow
                     // down pitch in landing
                     nav_pitch_cd = constrain_int32(nav_pitch_cd, 0, nav_pitch_cd);
@@ -1275,13 +1292,8 @@ static void update_alt()
 
     geofence_check(true);
 
-    // Calculate new climb rate
-    //if(medium_loopCounter == 0 && slow_loopCounter == 0)
-    //	add_altitude_data(millis() / 100, g_gps->altitude / 10);
-
     // Update the speed & height controller states
-    if ((g.alt_control_algorithm == ALT_CONTROL_TECS || g.alt_control_algorithm == ALT_CONTROL_DEFAULT) &&
-        auto_throttle_mode && !throttle_suppressed) {
+    if (auto_throttle_mode && !throttle_suppressed) {
         SpdHgt_Controller->update_pitch_throttle(target_altitude_cm - home.alt + (int32_t(g.alt_offset)*100), 
                                                  target_airspeed_cm,
                                                  (control_mode==AUTO && takeoff_complete == false), 
@@ -1292,6 +1304,9 @@ static void update_alt()
             Log_Write_TECS_Tuning();
         }
     }
+
+    // tell AHRS the airspeed to true airspeed ratio
+    airspeed.set_EAS2TAS(barometer.get_EAS2TAS());
 }
 
 AP_HAL_MAIN();

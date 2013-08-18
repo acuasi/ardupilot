@@ -42,7 +42,7 @@ static bool stick_mixing_enabled(void)
         // we're in an auto mode. Check the stick mixing flag
         if (g.stick_mixing != STICK_MIXING_DISABLED &&
             geofence_stickmixing() &&
-            failsafe == FAILSAFE_NONE &&
+            failsafe.state == FAILSAFE_NONE &&
             (g.throttle_fs_enabled == 0 || 
              channel_throttle->radio_in >= g.throttle_fs_value)) {
             // we're in an auto mode, and haven't triggered failsafe
@@ -73,10 +73,13 @@ static void stabilize_roll(float speed_scaler)
         if (ahrs.roll_sensor < 0) nav_roll_cd -= 36000;
     }
 
-    channel_roll->servo_out = g.rollController.get_servo_out(nav_roll_cd - ahrs.roll_sensor, 
-                                                             speed_scaler, 
-                                                             control_mode == STABILIZE, 
-                                                             aparm.flybywire_airspeed_min);
+    bool disable_integrator = false;
+    if (control_mode == STABILIZE && channel_roll->control_in != 0) {
+        disable_integrator = true;
+    }
+    channel_roll->servo_out = rollController.get_servo_out(nav_roll_cd - ahrs.roll_sensor, 
+                                                           speed_scaler, 
+                                                           disable_integrator);
 }
 
 /*
@@ -87,11 +90,13 @@ static void stabilize_roll(float speed_scaler)
 static void stabilize_pitch(float speed_scaler)
 {
     int32_t demanded_pitch = nav_pitch_cd + g.pitch_trim_cd + channel_throttle->servo_out * g.kff_throttle_to_pitch;
-    channel_pitch->servo_out = g.pitchController.get_servo_out(demanded_pitch - ahrs.pitch_sensor, 
-                                                               speed_scaler, 
-                                                               control_mode == STABILIZE, 
-                                                               aparm.flybywire_airspeed_min, 
-                                                               aparm.flybywire_airspeed_max);    
+    bool disable_integrator = false;
+    if (control_mode == STABILIZE && channel_pitch->control_in != 0) {
+        disable_integrator = true;
+    }
+    channel_pitch->servo_out = pitchController.get_servo_out(demanded_pitch - ahrs.pitch_sensor, 
+                                                             speed_scaler, 
+                                                             disable_integrator);
 }
 
 /*
@@ -260,17 +265,16 @@ static void stabilize_acro(float speed_scaler)
         nav_roll_cd = ahrs.roll_sensor + roll_error_cd;
         // try to reduce the integrated angular error to zero. We set
         // 'stabilze' to true, which disables the roll integrator
-        channel_roll->servo_out  = g.rollController.get_servo_out(roll_error_cd,
-                                                                  speed_scaler,
-                                                                  true,
-                                                                  aparm.flybywire_airspeed_min);
+        channel_roll->servo_out  = rollController.get_servo_out(roll_error_cd,
+                                                                speed_scaler,
+                                                                true);
     } else {
         /*
           aileron stick is non-zero, use pure rate control until the
           user releases the stick
          */
         acro_state.locked_roll = false;
-        channel_roll->servo_out  = g.rollController.get_rate_out(roll_rate,  speed_scaler);
+        channel_roll->servo_out  = rollController.get_rate_out(roll_rate,  speed_scaler);
     }
 
     if (pitch_rate == 0) {
@@ -285,17 +289,15 @@ static void stabilize_acro(float speed_scaler)
         // try to hold the locked pitch. Note that we have the pitch
         // integrator enabled, which helps with inverted flight
         nav_pitch_cd = acro_state.locked_pitch_cd;
-        channel_pitch->servo_out  = g.pitchController.get_servo_out(nav_pitch_cd - ahrs.pitch_sensor,
-                                                                    speed_scaler,
-                                                                    false,
-                                                                    aparm.flybywire_airspeed_min,
-                                                                    aparm.flybywire_airspeed_max);
+        channel_pitch->servo_out  = pitchController.get_servo_out(nav_pitch_cd - ahrs.pitch_sensor,
+                                                                  speed_scaler,
+                                                                  false);
     } else {
         /*
           user has non-zero pitch input, use a pure rate controller
          */
         acro_state.locked_pitch = false;
-        channel_pitch->servo_out = g.pitchController.get_rate_out(pitch_rate, speed_scaler);
+        channel_pitch->servo_out = pitchController.get_rate_out(pitch_rate, speed_scaler);
     }
 
     /*
@@ -343,9 +345,9 @@ static void stabilize()
         // we are low, with no climb rate, and zero throttle, and very
         // low ground speed. Zero the attitude controller
         // integrators. This prevents integrator buildup pre-takeoff.
-        g.rollController.reset_I();
-        g.pitchController.reset_I();
-        g.yawController.reset_I();
+        rollController.reset_I();
+        pitchController.reset_I();
+        yawController.reset_I();
     }
 }
 
@@ -360,39 +362,7 @@ static void calc_throttle()
         return;
     }
 
-    if (g.alt_control_algorithm == ALT_CONTROL_TECS || g.alt_control_algorithm == ALT_CONTROL_DEFAULT) {
-        channel_throttle->servo_out = SpdHgt_Controller->get_throttle_demand();
-    } else if (!alt_control_airspeed()) {
-        int16_t throttle_target = aparm.throttle_cruise + throttle_nudge;
-
-        // TODO: think up an elegant way to bump throttle when
-        // groundspeed_undershoot > 0 in the no airspeed sensor case; PID
-        // control?
-
-        // no airspeed sensor, we use nav pitch to determine the proper throttle output
-        // AUTO, RTL, etc
-        // ---------------------------------------------------------------------------
-        if (nav_pitch_cd >= 0) {
-            channel_throttle->servo_out = throttle_target + (aparm.throttle_max - throttle_target) * nav_pitch_cd / aparm.pitch_limit_max_cd;
-        } else {
-            channel_throttle->servo_out = throttle_target - (throttle_target - aparm.throttle_min) * nav_pitch_cd / aparm.pitch_limit_min_cd;
-        }
-
-        channel_throttle->servo_out = constrain_int16(channel_throttle->servo_out, aparm.throttle_min.get(), aparm.throttle_max.get());
-    } else {
-        // throttle control with airspeed compensation
-        // -------------------------------------------
-        energy_error = airspeed_energy_error + altitude_error_cm * 0.098f;
-
-        // positive energy errors make the throttle go higher
-        channel_throttle->servo_out = aparm.throttle_cruise + g.pidTeThrottle.get_pid(energy_error);
-        channel_throttle->servo_out += (channel_pitch->servo_out * g.kff_pitch_to_throttle);
-
-        channel_throttle->servo_out = constrain_int16(channel_throttle->servo_out,
-                                                       aparm.throttle_min.get(), aparm.throttle_max.get());
-    }
-
-
+    channel_throttle->servo_out = SpdHgt_Controller->get_throttle_demand();
 }
 
 /*****************************************
@@ -412,10 +382,11 @@ static void calc_nav_yaw(float speed_scaler, float ch4_inf)
         return;
     }
 
-    channel_rudder->servo_out = g.yawController.get_servo_out(speed_scaler, 
-                                                              control_mode == STABILIZE, 
-                                                              aparm.flybywire_airspeed_min, 
-                                                              aparm.flybywire_airspeed_max);
+    bool disable_integrator = false;
+    if (control_mode == STABILIZE && channel_rudder->control_in != 0) {
+        disable_integrator = true;
+    }
+    channel_rudder->servo_out = yawController.get_servo_out(speed_scaler, disable_integrator);
 
     // add in rudder mixing from roll
     channel_rudder->servo_out += channel_roll->servo_out * g.kff_rudder_mix;
@@ -427,13 +398,7 @@ static void calc_nav_pitch()
 {
     // Calculate the Pitch of the plane
     // --------------------------------
-    if (g.alt_control_algorithm == ALT_CONTROL_TECS || g.alt_control_algorithm == ALT_CONTROL_DEFAULT) {
-        nav_pitch_cd = SpdHgt_Controller->get_pitch_demand();
-    } else if (alt_control_airspeed()) {
-        nav_pitch_cd = -g.pidNavPitchAirspeed.get_pid(airspeed_error_cm);
-    } else {
-        nav_pitch_cd = g.pidNavPitchAltitude.get_pid(altitude_error_cm);
-    }
+    nav_pitch_cd = SpdHgt_Controller->get_pitch_demand();
     nav_pitch_cd = constrain_int32(nav_pitch_cd, aparm.pitch_limit_min_cd.get(), aparm.pitch_limit_max_cd.get());
 }
 
@@ -444,18 +409,6 @@ static void calc_nav_roll()
     nav_roll_cd = constrain_int32(nav_roll_cd, -g.roll_limit_cd.get(), g.roll_limit_cd.get());
 }
 
-
-/*****************************************
-* Roll servo slew limit
-*****************************************/
-/*
- *  float roll_slew_limit(float servo)
- *  {
- *       static float last;
- *       float temp = constrain_float(servo, last-ROLL_SLEW_LIMIT * delta_ms_fast_loop/1000.f, last + ROLL_SLEW_LIMIT * delta_ms_fast_loop/1000.f);
- *       last = servo;
- *       return temp;
- *  }*/
 
 /*****************************************
 * Throttle slew limit
@@ -884,8 +837,3 @@ static void demo_servos(uint8_t i)
     }
 }
 
-// return true if we should use airspeed for altitude/throttle control
-static bool alt_control_airspeed(void)
-{
-    return airspeed.use() && g.alt_control_algorithm == ALT_CONTROL_AIRSPEED;
-}
