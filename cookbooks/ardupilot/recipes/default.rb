@@ -38,25 +38,28 @@ end
 
 # Python dependencies
 include_recipe "python"
-python_pip "pymavlink"
-python_pip "mavproxy"
 python_pip "pexpect"
 
 # Trigger initial generation of a config.mk file.
 execute "cd /home/vagrant/ardupilot/ArduCopter && make configure"
 
-# Environmental modifications
-ruby_block "edit-bashrc-environment" do
-  block do
-    file = Chef::Util::FileEdit.new("#{ENV['HOME']}/.bashrc")
-    file.insert_line_if_no_match(
-      "# Include paths needed to run Arudpilot code and tests",
-      "\n\n# Include paths needed to run Arudpilot code and tests\nexport PATH=/usr/lib/ccache:$PATH"
-    )
-    file.write_file
-  end
+# Additional repositories to support development.
+git "/home/vagrant/mavproxy" do
+  repository "https://github.com/tridge/MAVProxy"
+  action :sync
 end
+execute "cd /home/vagrant/mavproxy && sudo easy_install ."
 
+git "/home/vagrant/mavlink" do
+  repository "https://github.com/mavlink/mavlink"
+  action :sync
+end
+execute "cd /home/vagrant/mavlink/pymavlink && sudo easy_install ."
 
-
-
+# Manage the .profile to add paths & configure the shell.
+template "/home/vagrant/.profile" do
+  source "profile.erb"
+  mode 0644
+  owner "vagrant"
+  group "vagrant"
+end
