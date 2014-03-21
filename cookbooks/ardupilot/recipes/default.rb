@@ -30,7 +30,8 @@ include_recipe "apt"
   'ccache',
   'python-opencv',
   'python-wxgtk2.8',
-  'gnome-terminal'
+  'python-matplotlib',
+  'xterm',
   ].each do |pkg|
   package pkg
 end
@@ -40,8 +41,8 @@ include_recipe "python"
 python_pip "pymavlink"
 python_pip "mavproxy"
 python_pip "pexpect"
-python_pip "matplotlib"
 
+command "cd ardupilot/ArduCopter && make configure"
 
 # Environmental modifications
 # ruby_block "include-bashrc-user" do
