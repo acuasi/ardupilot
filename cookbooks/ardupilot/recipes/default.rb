@@ -46,12 +46,12 @@ python_pip "pexpect"
 execute "cd /home/vagrant/ardupilot/ArduCopter && make configure"
 
 # Environmental modifications
-ruby_block "include-bashrc-user" do
+ruby_block "edit-bashrc-environment" do
   block do
     file = Chef::Util::FileEdit.new("#{ENV['HOME']}/.bashrc")
     file.insert_line_if_no_match(
       "# Include paths needed to run Arudpilot code and tests",
-      "\n\n# Include paths needed to run Arudpilot code and tests\nexport PATH=/usr/lib/ccache:$PATH",
+      "\n\n# Include paths needed to run Arudpilot code and tests\nexport PATH=/usr/lib/ccache:$PATH"
     )
     file.write_file
   end
