@@ -71,3 +71,4 @@ serialsent.raw
 status.txt
 tags
 test.ArduCopter/*
+/Tools/autotest/test.ArduCopter
