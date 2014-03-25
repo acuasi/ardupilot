@@ -39,22 +39,12 @@ end
 # Python dependencies
 include_recipe "python"
 python_pip "pexpect"
+python_pip "pymavlink"
+python_pip "mavproxy"
+python_pip "pillow"
 
 # Trigger initial generation of a config.mk file.
 execute "cd /home/vagrant/ardupilot/ArduCopter && make configure"
-
-# Additional repositories to support development.
-git "/home/vagrant/mavproxy" do
-  repository "https://github.com/tridge/MAVProxy"
-  action :sync
-end
-execute "cd /home/vagrant/mavproxy && sudo easy_install ."
-
-git "/home/vagrant/mavlink" do
-  repository "https://github.com/mavlink/mavlink"
-  action :sync
-end
-execute "cd /home/vagrant/mavlink/pymavlink && sudo easy_install ."
 
 # Manage the .profile to add paths & configure the shell.
 template "/home/vagrant/.profile" do
