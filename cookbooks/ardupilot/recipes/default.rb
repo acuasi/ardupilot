@@ -25,6 +25,7 @@ include_recipe "apt"
   'zlib1g-dev',
   'zip',
   'genromfs' ,
+  'xterm',
   
   # Some Python dependencies are easier to build this way than with pip.
   'python-opencv',
@@ -32,7 +33,8 @@ include_recipe "apt"
   'python-wxgtk2.8',
   'python-matplotlib',
   'python-serial',
-  'xterm',
+  'python-wxgtk2.8',
+  'python-matplotlib'
   ].each do |pkg|
   package pkg
 end
