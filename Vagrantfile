@@ -17,9 +17,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.provider :virtualbox do |vb|
 
-    # Otherwise the compile will go into swap, making things slow
-    vb.memory = 3072
-    vb.cpus = 2
+  # Otherwise the compile will go into swap, making things slow
+  vb.memory = 3072
+  vb.cpus = 2
 
   end
 

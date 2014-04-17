@@ -2,7 +2,6 @@
 include_recipe "apt"
 
 [
-  # Core/common dependencies
   'make',
   'git',
   'arduino-core',
@@ -11,14 +10,14 @@ include_recipe "apt"
   'g++',
   'dos2unix',
   'ccache',
-
-  # PX4 deps here
   'python-serial',
   'openocd',
   'flex',
   'bison',
   'libncurses5-dev',
   'autoconf',
+  'automake',
+  'libexpat1-dev',
   'texinfo',
   'build-essential',
   'libftdi-dev',
@@ -29,11 +28,41 @@ include_recipe "apt"
   
   # Some Python dependencies are easier to build this way than with pip.
   'python-opencv',
+  'python-scipy',
   'python-wxgtk2.8',
   'python-matplotlib',
+  'python-serial',
   'xterm',
   ].each do |pkg|
   package pkg
+end
+
+git "JSBSim" do
+    repository "https://github.com/tridge/jsbsim.git"
+    user "vagrant"
+    group "vagrant"
+    destination "/home/vagrant/JSBSim"
+    revision "master"
+    action :sync
+end
+
+# The symlink below is needed when this is run through pexpect.
+# The pexpect.spawn invokes os.execv() which doesn't search the path
+# correctly.
+bash "install_jsbsim" do
+  cwd "/home/vagrant/JSBSim"
+  user "vagrant"
+  group "vagrant"
+  code <<-EOH
+    ./autogen.sh
+    make
+  EOH
+end
+
+bash "symlink_jbsim" do
+  code <<-EOH
+      ln -s /home/vagrant/JSBSim/src/JSBSim /bin/JSBSim
+  EOH
 end
 
 # Python dependencies

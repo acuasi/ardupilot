@@ -22,6 +22,11 @@ if [ -d "$HOME/bin" ] ; then
 fi
 
 # Add additional paths for Ardupilot development.
-export PATH=/usr/lib/ccache:$HOME/ardupilot/Tools/autotest:$HOME/jsbsim/src:$PATH
 export PATH=$HOME/mavlink:$HOME/mavproxy:$PATH
 export PYTHONPATH=$HOME/ardupilot/Tools/autotest/pysim:$PYTHONPATH
+
+export PATH=$PATH:$HOME/ardupilot/Tools/autotest
+#export PATH=$PATH:$HOME/MAVProxy
+export PATH=$PATH:$HOME/mavlink/pymavlink/examples
+export PATH=$PATH:$HOME/JSBSim/src
+export PATH=/usr/lib/ccache:$PATH
