@@ -10,9 +10,9 @@ ASSUME_YES=false
 
 # GNU Tools for ARM Embedded Processors
 # (see https://launchpad.net/gcc-arm-embedded/)
-ARM_ROOT="gcc-arm-none-eabi-4_8-2013q4"
-ARM_TARBALL="$ARM_ROOT-20131204-linux.tar.bz2"
-ARM_TARBALL_URL="https://launchpad.net/gcc-arm-embedded/4.8/4.8-2013-q4-major/+download/$ARM_TARBALL"
+ARM_ROOT="gcc-arm-none-eabi-4_8-2014q1"
+ARM_TARBALL="$ARM_ROOT-20140314-linux.tar.bz2"
+ARM_TARBALL_URL="https://launchpad.net/gcc-arm-embedded/4.8/4.8-2014-q1-update/+download/$ARM_TARBALL"
 
 function maybe_prompt_user() {
     if $ASSUME_YES; then
