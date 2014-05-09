@@ -86,12 +86,10 @@ few minutes in Linux, OS X, or Windows.
 
  1. [Download VirtualBox](https://www.virtualbox.org/wiki/Downloads)
  for your Mac, Windows or Linux machine.
-
  2. [Install vagrant](http://docs.vagrantup.com/v2/installation/).
-
+ 3. Install the git submodules that are used to install dependencies on the VM: ```git submodule init```, then ```git submodule update```.
  4. In the `ardupilot` directory, run `vagrant up` from the command
  line.  This will create a new Ubuntu Linux VM.
-
 
 You can now run `vagrant ssh` to log in to the development
 environment.  The `~/ardupilot` directory in the VM is actually the

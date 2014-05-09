@@ -84,3 +84,5 @@ template "/home/vagrant/.profile" do
   owner "vagrant"
   group "vagrant"
 end
+
+## TODO http://www.cyberciti.biz/faq/debian-ubuntu-removes-files-at-boot-time/ 
